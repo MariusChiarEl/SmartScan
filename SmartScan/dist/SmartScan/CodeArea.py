@@ -1,0 +1,102 @@
+from PySide6.QtWidgets import QApplication, QTextEdit, QWidget, QPlainTextEdit, QScrollBar
+from PySide6.QtGui import QPainter, QTextFormat, QColor
+from PySide6.QtCore import Qt, QRect, QSize, QPoint
+
+class LineNumberArea(QWidget):
+    def __init__(self, editor):
+        super().__init__(editor)
+        self.code_editor = editor
+
+    def sizeHint(self):
+        return QSize(self.code_editor.lineNumberAreaWidth(), 0)
+
+    def paintEvent(self, event):
+        self.code_editor.lineNumberAreaPaintEvent(event)
+
+class CodeArea(QPlainTextEdit):  # use QPlainTextEdit instead of QTextEdit for easier handling
+    def __init__(self):
+        super().__init__()
+        self.lineNumberArea = LineNumberArea(self)
+
+        # Connect events to the necesarry methods
+        self.blockCountChanged.connect(self.updateLineNumberAreaWidth)
+        self.updateRequest.connect(self.updateLineNumberArea)
+        self.cursorPositionChanged.connect(self.highlightCurrentLine)
+
+        self.updateLineNumberAreaWidth(0)
+        self.highlightCurrentLine()
+
+        # Set horizontal scrollbar
+        horizontalScrollBar = QScrollBar(Qt.Horizontal)
+        self.setHorizontalScrollBar(horizontalScrollBar)
+
+    def lineNumberAreaWidth(self):
+        digits = len(str(self.blockCount())) # Takes the number of lines and counts its digits
+        space = 6 + self.fontMetrics().horizontalAdvance('9') * digits # Makes space according to the maximum number of digits
+        return space
+
+    def updateLineNumberAreaWidth(self, _):
+        self.setViewportMargins(self.lineNumberAreaWidth(), 0, 0, 0)
+        
+    # Updates on scrolling or opening another file
+    def updateLineNumberArea(self, rect, dy):
+        if dy:
+            self.lineNumberArea.scroll(0, dy)
+        else:
+            self.lineNumberArea.update(0, rect.y(), self.lineNumberArea.width(), rect.height())
+
+        if rect.contains(self.viewport().rect()):
+            self.updateLineNumberAreaWidth(0)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        cr = self.contentsRect()
+        self.lineNumberArea.setGeometry(QRect(cr.left(), cr.top(), self.lineNumberAreaWidth(), cr.height()))
+
+    # Constantly paints the Code Area
+    def lineNumberAreaPaintEvent(self, event):
+        painter = QPainter(self.lineNumberArea)
+        painter.fillRect(event.rect(), Qt.lightGray)
+
+        block = self.firstVisibleBlock()
+        block_number = block.blockNumber()
+        top = int(self.blockBoundingGeometry(block).translated(self.contentOffset()).top())
+        bottom = top + int(self.blockBoundingRect(block).height())
+
+        while block.isValid() and top <= event.rect().bottom():
+            if block.isVisible() and bottom >= event.rect().top():
+                number = str(block_number + 1)
+                painter.setPen(Qt.black)
+
+                padding = 4
+                painter.drawText(
+                    padding,
+                    top,
+                    self.lineNumberArea.width() - 2 * padding,
+                    self.fontMetrics().height(),
+                    Qt.AlignRight | Qt.AlignVCenter,
+                    number
+                )
+
+                painter.drawText(0, top, self.lineNumberArea.width() - 5, self.fontMetrics().height(),
+                                 Qt.AlignRight, number)
+
+            block = block.next()
+            top = bottom
+            bottom = top + int(self.blockBoundingRect(block).height())
+            block_number += 1
+
+    # Highlights the line the cursor is currently on
+    def highlightCurrentLine(self):
+        extraSelections = []
+
+        if not self.isReadOnly():
+            selection = QTextEdit.ExtraSelection()
+            lineColor = QColor(Qt.gray).darker(160)
+            selection.format.setBackground(lineColor)
+            selection.format.setProperty(QTextFormat.FullWidthSelection, True)
+            selection.cursor = self.textCursor()
+            selection.cursor.clearSelection()
+            extraSelections.append(selection)
+
+        self.setExtraSelections(extraSelections)
