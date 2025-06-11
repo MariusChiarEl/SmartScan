@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import QApplication, QTextEdit, QWidget, QPlainTextEdit, QScrollBar
-from PySide6.QtGui import QPainter, QTextFormat, QColor
+from PySide6.QtGui import QPainter, QTextCharFormat, QTextCursor, QTextFormat, QColor
 from PySide6.QtCore import Qt, QRect, QSize, QPoint
 
 class LineNumberArea(QWidget):
@@ -22,6 +22,8 @@ class CodeArea(QPlainTextEdit):  # use QPlainTextEdit instead of QTextEdit for e
         self.blockCountChanged.connect(self.updateLineNumberAreaWidth)
         self.updateRequest.connect(self.updateLineNumberArea)
         self.cursorPositionChanged.connect(self.highlightCurrentLine)
+        
+        self.affected_lines = dict()
 
         self.updateLineNumberAreaWidth(0)
         self.highlightCurrentLine()
@@ -29,6 +31,7 @@ class CodeArea(QPlainTextEdit):  # use QPlainTextEdit instead of QTextEdit for e
         # Set horizontal scrollbar
         horizontalScrollBar = QScrollBar(Qt.Horizontal)
         self.setHorizontalScrollBar(horizontalScrollBar)
+
 
     def lineNumberAreaWidth(self):
         digits = len(str(self.blockCount())) # Takes the number of lines and counts its digits
@@ -86,7 +89,7 @@ class CodeArea(QPlainTextEdit):  # use QPlainTextEdit instead of QTextEdit for e
             bottom = top + int(self.blockBoundingRect(block).height())
             block_number += 1
 
-    # Highlights the line the cursor is currently on
+    # Highlights the line the cursor is currently on and the ones with vulnerabilities
     def highlightCurrentLine(self):
         extraSelections = []
 
@@ -98,5 +101,31 @@ class CodeArea(QPlainTextEdit):  # use QPlainTextEdit instead of QTextEdit for e
             selection.cursor = self.textCursor()
             selection.cursor.clearSelection()
             extraSelections.append(selection)
+
+            # Highlight the affected lines
+            affectedLineColor = QColor(160, 160, 0) # yellow
+            for errorStart, errorEnd in self.affected_lines:
+                selection = QTextEdit.ExtraSelection()
+                selection.format.setBackground(affectedLineColor)
+                selection.format.setProperty(QTextFormat.FullWidthSelection, True)
+                selection.cursor = self.textCursor()
+                selection.cursor.clearSelection()
+                selection.cursor.movePosition(QTextCursor.Start)
+                selection.cursor.movePosition(QTextCursor.Down, QTextCursor.MoveAnchor, errorStart - 1)
+
+                for line in range(errorStart + 1, errorEnd):
+                    block = self.document().findBlockByNumber(line)
+                    if block.isValid():
+                        selection = QTextEdit.ExtraSelection()
+                        selection.format.setBackground(affectedLineColor)
+                        selection.format.setProperty(QTextFormat.FullWidthSelection, True)
+
+                        cursor = QTextCursor(block)
+                        selection.cursor = cursor
+                        selection.cursor.clearSelection()
+
+                        extraSelections.append(selection)
+
+                
 
         self.setExtraSelections(extraSelections)

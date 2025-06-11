@@ -1,13 +1,22 @@
+from genericpath import exists
 import github
 import subprocess
 import os
 
 class GitHubImport():
 
-    def __init__(self, repo_path, gitHub_token):
+    def __init__(self, repo_path):
         # GitHub API token (for authentication)
         # Necesarry when working with private repos
-        self.GITHUB_TOKEN = gitHub_token # "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"
+
+        api_key_path = os.path.join(os.getcwd(), "API_KEY.txt")
+        exists = os.path.isfile(api_key_path)
+        if not exists:
+            print("API key file not found. Please create a file named 'API_KEY.txt' in the current directory and enter the API Key there.")
+        else:
+            with open(api_key_path, "r", encoding="utf-8") as api_key_file:
+                api_key = api_key_file.read()
+                self.GITHUB_TOKEN = api_key # "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"
 
         # Repository details
         self.REPO_PATH = repo_path # "https://github.com/MariusChiarEl/Blockchain-project.git"

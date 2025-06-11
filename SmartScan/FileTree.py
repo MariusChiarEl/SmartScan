@@ -29,12 +29,20 @@ class FileTree(QTreeView):
         for column in range(1, self.file_model.columnCount()):
             self.hideColumn(column)
 
+        self.affected_lines_mapping = dict()
+
     def on_file_selected(self, index):
         file_path = self.file_model.filePath(index)
 
         file_path_split = file_path.split("/")
 
         file_name = file_path_split[len(file_path_split) - 1]
+
+        if file_name == "security_report.txt":
+            return file_path
+
+        if len(file_name.split(".")) < 2:
+            return ""
 
         file_extension = file_name.split(".")[1]
 

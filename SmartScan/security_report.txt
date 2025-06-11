@@ -1,0 +1,5 @@
+Security report:
+Severity rating: 4 / 5
+Severity Score: 161
+Result: Vulnerable
+Severity frequency: {'Low': 44, 'Medium': 9, 'High': 9, 'Critical': 0, 'Informational': 267, 'Optimization': 47}

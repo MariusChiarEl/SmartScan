@@ -1,9 +1,10 @@
+from pathlib import WindowsPath
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QSplitter, QTreeView, QTextEdit, QFileSystemModel,
     QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton, QWidget, QToolBar
 )
-from PySide6.QtCore import Qt, QDir; from PySide6.QtGui import QAction
-import FileTree; import CodeArea; import RepoPath
+from PySide6.QtCore import Qt, QDir; from PySide6.QtGui import QAction, QIcon
+import FileTree, CodeArea, RepoPath, SlitherScanner
 
 """
 Main window logic: Contains the components: CodeArea, FileTree and RepoPath
@@ -21,20 +22,42 @@ class MainWindow(QMainWindow):
 
         """
         Add Menu Bar. It will hold the following functionalities:
-        1. Saving the current file (which is opened)
-        2. Setting the API Key (for private repos)
-        3. Generate the Slither Report File (after the analysis is done)
+        1. Save the current file (which is opened)
+        2. Generate the Slither Report File (after the analysis is done)
         """
         menu_bar = self.menuBar()
         
 
         action_save_current_file = QAction("Save", self)
         action_save_current_file.triggered.connect(self.save_current_file)
+        
         menu_bar.addAction(action_save_current_file)
+        self.star_actions = list()
 
-        action_set_api_key = QAction("Set API Key", self)
-        action_set_api_key.triggered.connect(self.set_api_key)
-        menu_bar.addAction(action_set_api_key)
+        star_action1 = QAction(QIcon("red-star.png"), "Star Item 1", self)
+        star_action1.setEnabled(False)
+        self.star_actions.append(star_action1)
+        menu_bar.addAction(star_action1)
+
+        star_action2 = QAction(QIcon("red-star.png"), "Star Item 2", self)
+        star_action2.setEnabled(False)
+        self.star_actions.append(star_action2)
+        menu_bar.addAction(star_action2)
+
+        star_action3 = QAction(QIcon("red-star.png"), "Star Item 3", self)
+        star_action3.setEnabled(False)
+        self.star_actions.append(star_action3)
+        menu_bar.addAction(star_action3)
+
+        star_action4 = QAction(QIcon("red-star.png"), "Star Item 4", self)
+        star_action4.setEnabled(False)
+        self.star_actions.append(star_action4)
+        menu_bar.addAction(star_action4)
+
+        star_action5 = QAction(QIcon("red-star.png"), "Star Item 5", self)
+        star_action5.setEnabled(False)
+        self.star_actions.append(star_action5)
+        menu_bar.addAction(star_action5)
 
         # Create a central widget and layout
         central_widget = QWidget()
@@ -74,6 +97,8 @@ class MainWindow(QMainWindow):
         # Set initial sizes for the splitter (left side : 75%, right side : 25%)
         splitter.setSizes([int(self.width() * 0.75), int(self.width() * 0.25)])
 
+        self.SlitherScanner = None
+
         self.initEvents()
         
     def save_current_file(self):
@@ -89,7 +114,7 @@ class MainWindow(QMainWindow):
         RepoPath Events
         """
         # Create event for run_button press
-        self.repo_path.run_button.clicked.connect(self.repo_path.on_run_button_clicked)
+        self.repo_path.run_button.clicked.connect(self.on_run_button_clicked)
 
         """
         FileTree Events
@@ -103,10 +128,42 @@ class MainWindow(QMainWindow):
             try:
                 with open(file_path, "r+") as currentFile:
                     content = currentFile.read()
+
+                    file_path_split = file_path.split("/")
+
+                    file_name = file_path_split[len(file_path_split) - 1]
+
+                    if file_name != "security_report.txt":
+                        self.analyzed_code_area.affected_lines = self.file_tree.affected_lines_mapping[WindowsPath(file_path)]
+
                     self.analyzed_code_area.setPlainText(content)
                     self.currentFilePath = file_path
             except Exception as e:
                 print(f"Error reading file: {e}")
+
+    def on_run_button_clicked(self):
+        contracts = self.repo_path.on_run_button_clicked() # get the smart contracts
+
+        self.SlitherScanner = SlitherScanner.SlitherScanner()
+
+        for contract in contracts:
+            self.SlitherScanner.solidity_analysis(contract)
+
+        self.file_tree.affected_lines_mapping = self.SlitherScanner.affected_lines_mapping
+        print("Repository scanned successfuly!")
+
+        content = self.SlitherScanner.generate_severity_report()
+        
+        self.analyzed_code_area.affected_lines = []
+        self.analyzed_code_area.setPlainText(content)
+
+        # Reset the stars color
+        for i in range(5):
+            self.star_actions[i].setEnabled(False)
+
+        # Set the stars color based on the severity score
+        for i in range(self.SlitherScanner.stars):
+            self.star_actions[i].setEnabled(True)
 
 if __name__ == "__main__":
     app = QApplication([])
