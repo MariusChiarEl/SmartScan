@@ -26,6 +26,7 @@
     <Compile Include="FileTree.py" />
     <Compile Include="GitHubImport.py" />
     <Compile Include="RepoPath.py" />
+    <Compile Include="SecurityVulnerability.py" />
     <Compile Include="SlitherScanner.py" />
     <Compile Include="SmartScan.py" />
   </ItemGroup>

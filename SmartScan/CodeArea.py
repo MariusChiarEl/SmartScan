@@ -2,6 +2,8 @@ from PySide6.QtWidgets import QApplication, QTextEdit, QWidget, QPlainTextEdit, 
 from PySide6.QtGui import QPainter, QTextCharFormat, QTextCursor, QTextFormat, QColor, QWheelEvent, QKeyEvent
 from PySide6.QtCore import Qt, QRect, QSize, QPoint
 
+import ErrorWindow
+
 class LineNumberArea(QWidget):
     def __init__(self, editor):
         super().__init__(editor)
@@ -16,6 +18,8 @@ class LineNumberArea(QWidget):
 class CodeArea(QPlainTextEdit):  # use QPlainTextEdit instead of QTextEdit for easier handling
     def __init__(self):
         super().__init__()
+        self.file_to_errors_mapping = dict()
+        self.ErrorWindow = ErrorWindow.ErrorWindow()
         self.lineNumberArea = LineNumberArea(self)
 
         # Connect events to the necesarry methods
@@ -123,6 +127,7 @@ class CodeArea(QPlainTextEdit):  # use QPlainTextEdit instead of QTextEdit for e
             block_number += 1
 
     # Highlights the line the cursor is currently on and the ones with vulnerabilities
+    # And updates the current error if the cursor is on an error
     def highlightCurrentLine(self):
         extraSelections = []
 
@@ -132,12 +137,20 @@ class CodeArea(QPlainTextEdit):  # use QPlainTextEdit instead of QTextEdit for e
             selection.format.setBackground(lineColor)
             selection.format.setProperty(QTextFormat.FullWidthSelection, True)
             selection.cursor = self.textCursor()
+            selected_line = selection.cursor.blockNumber() + 1
             selection.cursor.clearSelection()
             extraSelections.append(selection)
 
+            if not self.file_to_errors_mapping:
+                return
+
             # Highlight the affected lines
             affectedLineColor = QColor(160, 160, 0) # yellow
-            for errorStart, errorEnd in self.affected_lines:
+            for error in self.file_to_errors_mapping:
+                if error.severity not in {"Low", "Medium", "High", "Critical"}:
+                    continue
+                errorStart = error.first_line
+                errorEnd = error.last_line
                 selection = QTextEdit.ExtraSelection()
                 selection.format.setBackground(affectedLineColor)
                 selection.format.setProperty(QTextFormat.FullWidthSelection, True)
@@ -146,7 +159,9 @@ class CodeArea(QPlainTextEdit):  # use QPlainTextEdit instead of QTextEdit for e
                 selection.cursor.movePosition(QTextCursor.Start)
                 selection.cursor.movePosition(QTextCursor.Down, QTextCursor.MoveAnchor, errorStart - 1)
 
-                for line in range(errorStart + 1, errorEnd):
+                for line in range(errorStart - 1, errorEnd):
+                    if line == selected_line - 1:
+                        continue
                     block = self.document().findBlockByNumber(line)
                     if block.isValid():
                         selection = QTextEdit.ExtraSelection()
@@ -158,5 +173,23 @@ class CodeArea(QPlainTextEdit):  # use QPlainTextEdit instead of QTextEdit for e
                         selection.cursor.clearSelection()
 
                         extraSelections.append(selection)
+
+            error_found = False
+
+            for error in self.file_to_errors_mapping:
+                if error.severity not in {"Low", "Medium", "High", "Critical"}:
+                    continue
+                elif selected_line >= error.first_line and selected_line <= error.last_line:
+                    content = f"Current line: {selected_line}\n\n"
+                    content += f"Error in lines: {error.first_line} - {error.last_line}\n\n"
+                    content += "Description: " + error.description + '\n'
+                    content += "Severity: " + error.severity
+                    self.ErrorWindow.error_description_box.setPlainText(content)
+                    error_found = True
+                    break
+
+            if not error_found:
+                content = "No error in this line."
+                self.ErrorWindow.error_description_box.setPlainText(content)
 
         self.setExtraSelections(extraSelections)

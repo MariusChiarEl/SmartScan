@@ -2,11 +2,10 @@ from slither import Slither
 from slither.detectors import all_detectors
 import inspect
 from slither.detectors.abstract_detector import AbstractDetector
+import SecurityVulnerability
 
 class SlitherScanner:
     def __init__(self):
-        self.analyzed_paths = []
-
         self.affected_lines_mapping = dict()
 
         self.severity_score_mapping = {
@@ -26,6 +25,8 @@ class SlitherScanner:
             "Informational" : 0,
             "Optimization"  : 0
         }
+
+        self.errors_list = []
     
     def solidity_analysis(self, path):
         try:
@@ -73,6 +74,9 @@ class SlitherScanner:
                 self.severity_type_frequency[severity] += 1
 
                 print("-" * 20)
+
+                error = SecurityVulnerability.Error(lines[0], lines[-1], description, severity)
+                self.errors_list.append(error)
 
             self.affected_lines_mapping.update({path : affected_lines})
 

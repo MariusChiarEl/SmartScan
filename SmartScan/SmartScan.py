@@ -4,6 +4,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton, QWidget, QToolBar
 )
 from PySide6.QtCore import Qt, QDir; from PySide6.QtGui import QAction, QIcon
+import ErrorWindow
 import FileTree, CodeArea, RepoPath, SlitherScanner
 import time
 
@@ -31,8 +32,12 @@ class MainWindow(QMainWindow):
 
         action_save_current_file = QAction("Save", self)
         action_save_current_file.triggered.connect(self.save_current_file)
+
+        action_open_error_window = QAction("Open Error Window", self)
+        action_open_error_window.triggered.connect(self.open_error_window)
         
         menu_bar.addAction(action_save_current_file)
+        menu_bar.addAction(action_open_error_window)
         self.star_actions = list()
 
         star_action1 = QAction(QIcon("red-star.png"), "Star Item 1", self)
@@ -108,12 +113,16 @@ class MainWindow(QMainWindow):
         self.initEvents()
 
         self.alreadyZoomed = False
-        self.analises = list() # only for internal analysis of performance
+
+        self.file_to_errors_mapping = dict()
         
     def save_current_file(self):
         with open(self.currentFilePath, "w+") as currentFile:
             currentFile.write(self.analyzed_code_area.toPlainText())
         print(f"Current file saved: {self.currentFilePath}")
+        
+    def open_error_window(self):
+        self.analyzed_code_area.ErrorWindow.show()
 
     def set_api_key(self):
         print("Private API Key set!")
@@ -139,6 +148,7 @@ class MainWindow(QMainWindow):
 
                     if file_name != "security_report.txt" and file_name != "API_KEY.txt":
                         self.analyzed_code_area.affected_lines = self.file_tree.affected_lines_mapping[WindowsPath(file_path)]
+                        self.analyzed_code_area.file_to_errors_mapping = self.file_to_errors_mapping[WindowsPath(file_path)]
                         if not self.alreadyZoomed:
                             self.analyzed_code_area.zoomOut(5)
                             self.alreadyZoomed = True
@@ -177,11 +187,12 @@ class MainWindow(QMainWindow):
         self.SlitherScanner = SlitherScanner.SlitherScanner()
         for contract in contracts:
             self.SlitherScanner.solidity_analysis(contract)
+            errors_list = self.SlitherScanner.errors_list
+            self.file_to_errors_mapping[contract] = errors_list
 
         self.file_tree.affected_lines_mapping = self.SlitherScanner.affected_lines_mapping
         analisys_time_end = time.time()
         elapsed_time = round(analisys_time_end - analisys_time_start, 2)
-        self.analises.append((self.repo_path.text_input.text(), elapsed_time))# repository_path -> time elapsed to analyze
         print("Repository scanned successfuly!")
 
         content = f"Repository scanned successfuly! (in {elapsed_time} second(s))\n\n"
