@@ -5,6 +5,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QDir; from PySide6.QtGui import QAction, QIcon
 import FileTree, CodeArea, RepoPath, SlitherScanner
+import time
 
 """
 Main window logic: Contains the components: CodeArea, FileTree and RepoPath
@@ -77,6 +78,11 @@ class MainWindow(QMainWindow):
 
         # Add CodeArea
         self.analyzed_code_area = CodeArea.CodeArea()
+        welcomeMessage = "Welcome to SmartScan! \n\n"
+        welcomeMessage += "If your repository is private, please insert the API Key in API_KEY.txt for SmartScan to access it.\n\n"
+        welcomeMessage += "Insert the GitHub repository link and press 'Analyze'.\n\n"
+        self.analyzed_code_area.setPlainText(welcomeMessage)
+        self.analyzed_code_area.zoomIn(5)
         left_layout.addWidget(self.analyzed_code_area, stretch=1)  # Make it stretch to fill available space
 
         # Add RepoPath
@@ -100,6 +106,9 @@ class MainWindow(QMainWindow):
         self.SlitherScanner = None
 
         self.initEvents()
+
+        self.alreadyZoomed = False
+        self.analises = list() # only for internal analysis of performance
         
     def save_current_file(self):
         with open(self.currentFilePath, "w+") as currentFile:
@@ -110,15 +119,10 @@ class MainWindow(QMainWindow):
         print("Private API Key set!")
 
     def initEvents(self):
-        """
-        RepoPath Events
-        """
         # Create event for run_button press
         self.repo_path.run_button.clicked.connect(self.on_run_button_clicked)
 
-        """
-        FileTree Events
-        """
+        # FileTree Events
         self.file_tree.doubleClicked.connect(self.on_file_selected)
 
     def on_file_selected(self, index):
@@ -133,8 +137,14 @@ class MainWindow(QMainWindow):
 
                     file_name = file_path_split[len(file_path_split) - 1]
 
-                    if file_name != "security_report.txt":
+                    if file_name != "security_report.txt" and file_name != "API_KEY.txt":
                         self.analyzed_code_area.affected_lines = self.file_tree.affected_lines_mapping[WindowsPath(file_path)]
+                        if not self.alreadyZoomed:
+                            self.analyzed_code_area.zoomOut(5)
+                            self.alreadyZoomed = True
+
+                    else:
+                        self.analyzed_code_area.affected_lines.clear()
 
                     self.analyzed_code_area.setPlainText(content)
                     self.currentFilePath = file_path
@@ -142,18 +152,45 @@ class MainWindow(QMainWindow):
                 print(f"Error reading file: {e}")
 
     def on_run_button_clicked(self):
+        analisys_time_start = time.time()
+        # Reset the star rating
+        for i in range(5):
+            self.star_actions[i].setEnabled(False)
+
         contracts = self.repo_path.on_run_button_clicked() # get the smart contracts
 
-        self.SlitherScanner = SlitherScanner.SlitherScanner()
+        if self.repo_path.failed:
+            content = "The cloning process failed."
+            content += "\n\nPlease make sure you are connected to the internet and that the repository link is valid and try again."
+            self.analyzed_code_area.affected_lines = []
+            self.analyzed_code_area.setPlainText(content)
+            return
 
+
+        if len(contracts) == 0:
+            content = f"No Solidity file found in the cloned repository.\n"
+            content += "Please try again with another project."
+
+            self.analyzed_code_area.setPlainText(content)
+            return
+
+        self.SlitherScanner = SlitherScanner.SlitherScanner()
         for contract in contracts:
             self.SlitherScanner.solidity_analysis(contract)
 
         self.file_tree.affected_lines_mapping = self.SlitherScanner.affected_lines_mapping
+        analisys_time_end = time.time()
+        elapsed_time = round(analisys_time_end - analisys_time_start, 2)
+        self.analises.append((self.repo_path.text_input.text(), elapsed_time))# repository_path -> time elapsed to analyze
         print("Repository scanned successfuly!")
 
-        content = self.SlitherScanner.generate_severity_report()
-        
+        content = f"Repository scanned successfuly! (in {elapsed_time} second(s))\n\n"
+        content += self.SlitherScanner.generate_severity_report()
+        content += "\n The cloned project can be accessed in the ClonedRepo directory."
+        content += "\n\n Double click any .sol file to see its code."
+        content += "\n\n All the affected lines will be highlighted."
+        content += " Navigate the console to see each error."
+
         self.analyzed_code_area.affected_lines = []
         self.analyzed_code_area.setPlainText(content)
 

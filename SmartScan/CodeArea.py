@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import QApplication, QTextEdit, QWidget, QPlainTextEdit, QScrollBar
-from PySide6.QtGui import QPainter, QTextCharFormat, QTextCursor, QTextFormat, QColor
+from PySide6.QtGui import QPainter, QTextCharFormat, QTextCursor, QTextFormat, QColor, QWheelEvent, QKeyEvent
 from PySide6.QtCore import Qt, QRect, QSize, QPoint
 
 class LineNumberArea(QWidget):
@@ -32,6 +32,39 @@ class CodeArea(QPlainTextEdit):  # use QPlainTextEdit instead of QTextEdit for e
         horizontalScrollBar = QScrollBar(Qt.Horizontal)
         self.setHorizontalScrollBar(horizontalScrollBar)
 
+        self.zoom = 0  # Track zoom level
+
+    def wheelEvent(self, event: QWheelEvent):
+        if event.modifiers() & Qt.ControlModifier:
+            if event.angleDelta().y() > 0:
+                self.zoomIn(1)
+                self.zoom += 1
+            else:
+                self.zoomOut(1)
+                self.zoom -= 1
+            event.accept()
+        else:
+            super().wheelEvent(event)
+
+    def keyPressEvent(self, event: QKeyEvent):
+        if event.modifiers() & Qt.ControlModifier:
+            if event.key() == Qt.Key_Plus or event.key() == Qt.Key_Equal:
+                self.zoomIn(1)
+                self.zoom += 1
+                event.accept()
+                return
+            elif event.key() == Qt.Key_Minus:
+                self.zoomOut(1)
+                self.zoom -= 1
+                event.accept()
+                return
+            elif event.key() == Qt.Key_0:
+                # Reset zoom
+                self.zoomOut(self.zoom)
+                self.zoom = 0
+                event.accept()
+                return
+        super().keyPressEvent(event)
 
     def lineNumberAreaWidth(self):
         digits = len(str(self.blockCount())) # Takes the number of lines and counts its digits
@@ -125,7 +158,5 @@ class CodeArea(QPlainTextEdit):  # use QPlainTextEdit instead of QTextEdit for e
                         selection.cursor.clearSelection()
 
                         extraSelections.append(selection)
-
-                
 
         self.setExtraSelections(extraSelections)

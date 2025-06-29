@@ -21,11 +21,14 @@ class RepoPath(QWidget):
         # Button (QPushButton)
         self.run_button = QPushButton("Analyze")
         self.bottom_layout.addWidget(self.run_button)
+        self.failed = False
 
     def on_run_button_clicked(self):
         """Event for run_button press"""
 
         git_hub_import = GitHubImport.GitHubImport(self.text_input.text())
+        if git_hub_import.clone_result is False: # in case of failure
+            self.failed = True
         clone_dir = os.path.join(os.getcwd(), "ClonedRepo")
 
         dir = Path(clone_dir)

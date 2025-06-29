@@ -21,7 +21,7 @@ class GitHubImport():
         # Repository details
         self.REPO_PATH = repo_path # "https://github.com/MariusChiarEl/Blockchain-project.git"
 
-        self.clone_repo()
+        self.clone_result = self.clone_repo()
 
     def clone_repo(self):
         git_hub = github.Github()
@@ -40,7 +40,10 @@ class GitHubImport():
         try:
             subprocess.run(["git", "clone", self.REPO_PATH, clone_dir], check=True)
             print("Repository cloned successfully!")
+            return True
         except subprocess.CalledProcessError as e:
             print(f"Failed to clone repository: {e}")
+            return False
         except Exception as e:
             print(f"An error occurred: {e}")
+            return False

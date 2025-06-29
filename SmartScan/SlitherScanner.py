@@ -121,7 +121,7 @@ class SlitherScanner:
             self.stars = 5
         elif critical_vulnerabilities <= 2 and critical_vulnerabilities > 0 or high_vulnerabilities > 5 and high_vulnerabilities <= 10:
             self.stars = 4
-        elif high_vulnerabilities <= 5 or high_vulnerabilities > 2 and vulnerabilities > 25:
+        elif high_vulnerabilities <= 5 and high_vulnerabilities > 2 and vulnerabilities > 25:
             self.stars = 3
         elif high_vulnerabilities <= 2 and high_vulnerabilities > 0 or vulnerabilities <= 25 and vulnerabilities > 10:
             self.stars = 2

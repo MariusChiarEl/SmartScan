@@ -38,7 +38,7 @@ class FileTree(QTreeView):
 
         file_name = file_path_split[len(file_path_split) - 1]
 
-        if file_name == "security_report.txt":
+        if file_name == "security_report.txt" or file_name == "API_KEY.txt":
             return file_path
 
         if len(file_name.split(".")) < 2:
